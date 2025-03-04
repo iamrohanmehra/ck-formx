@@ -1,10 +1,13 @@
 "use server";
 
+import { createClient } from "@supabase/supabase-js";
+
 // Mock Supabase client for development
 const mockSupabase = {
   from: () => ({
-    insert: () => Promise.resolve({ data: { id: "mock-id" }, error: null }),
-    select: () => Promise.resolve({ data: { id: "mock-id" }, error: null }),
+    insert: () => ({
+      select: () => Promise.resolve({ data: { id: "mock-id" }, error: null }),
+    }),
   }),
 };
 
@@ -29,15 +32,100 @@ try {
 }
 
 export async function submitForm(formData) {
+  console.log("Form data received:", formData);
+
   try {
-    const { data, error } = await supabase
-      .from("form_submissions")
-      .insert([formData])
-      .select();
+    // Get Supabase credentials directly from environment variables
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (error) throw error;
+    console.log("Supabase URL available:", !!supabaseUrl);
+    console.log("Supabase Service Key available:", !!supabaseServiceKey);
 
-    return { success: true, data };
+    let supabaseResult = { success: false, data: null, error: null };
+    let sheetsResult = { success: false, error: null };
+
+    // Try Supabase first
+    if (supabaseUrl && supabaseServiceKey) {
+      try {
+        console.log("Creating Supabase client...");
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+        console.log("Saving to Supabase...");
+        const { data, error } = await supabase.from("form_submissions").insert({
+          first_name: formData.firstName,
+          email: formData.email,
+          whatsapp: formData.whatsapp,
+          preference: formData.preference,
+          occupation: formData.occupation || null,
+          recommendation: formData.recommendation || null,
+          income: formData.income || null,
+          frontend_interest: formData.frontendInterest || null,
+          form_type: "formx1",
+        });
+
+        if (error) {
+          console.error("Supabase error:", error);
+          supabaseResult.error = error.message;
+        } else {
+          console.log("Supabase save successful");
+          supabaseResult.success = true;
+          supabaseResult.data = data;
+        }
+      } catch (error) {
+        console.error("Error with Supabase:", error);
+        supabaseResult.error = error.message;
+      }
+    } else {
+      console.warn("Missing Supabase credentials, skipping Supabase save");
+      supabaseResult.error = "Missing Supabase credentials";
+    }
+
+    // Always try Google Sheets
+    try {
+      console.log("Saving to Google Sheets...");
+      const baseUrl =
+        process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+
+      const response = await fetch(`${baseUrl}/api/submit-form`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (!result.success) {
+        console.error("Google Sheets error:", result.error);
+        sheetsResult.error = result.error;
+      } else {
+        console.log("Google Sheets save successful");
+        sheetsResult.success = true;
+      }
+    } catch (error) {
+      console.error("Error calling Google Sheets API:", error);
+      sheetsResult.error = error.message;
+    }
+
+    // Return success if either service succeeded
+    if (supabaseResult.success || sheetsResult.success) {
+      return {
+        success: true,
+        data: supabaseResult.data,
+        supabaseStatus: supabaseResult.success ? "success" : "failed",
+        sheetsStatus: sheetsResult.success ? "success" : "failed",
+      };
+    } else {
+      // Both failed
+      throw new Error(
+        `Supabase: ${supabaseResult.error}, Sheets: ${sheetsResult.error}`
+      );
+    }
   } catch (error) {
     console.error("Error submitting form:", error);
     return { success: false, error: error.message };

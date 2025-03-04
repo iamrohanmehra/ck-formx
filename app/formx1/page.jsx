@@ -7,8 +7,8 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { submitForm } from "@/app/actions";
 
 export default function FormX1() {
   const router = useRouter();
@@ -523,26 +523,30 @@ export default function FormX1() {
         setSubmissionStatus({ loading: true, error: null });
 
         try {
-          // Save form data to Supabase
-          const { data, error } = await supabase
-            .from("form_submissions")
-            .insert([
-              {
-                first_name: formData.firstName,
-                email: formData.email,
-                whatsapp: formData.whatsapp,
-                preference: formData.preference,
-                occupation: formData.occupation,
-                recommendation: formData.recommendation || null,
-                income: formData.income || null,
-                frontend_interest: formData.frontendInterest || null,
-                form_type: "formx1",
-              },
-            ]);
+          console.log("Submitting form data:", formData);
 
-          if (error) throw error;
+          // Use the server action to submit the form
+          const result = await submitForm({
+            firstName: formData.firstName,
+            email: formData.email,
+            whatsapp: formData.whatsapp,
+            preference: formData.preference,
+            occupation: formData.occupation,
+            recommendation: formData.recommendation || null,
+            income: formData.income || null,
+            frontendInterest: formData.frontendInterest || null,
+          });
 
-          console.log("Form submitted to Supabase:", data);
+          console.log("Form submission result:", result);
+
+          if (!result.success) {
+            throw new Error(result.error || "Unknown error occurred");
+          }
+
+          // Log detailed status
+          console.log(
+            `Supabase: ${result.supabaseStatus}, Sheets: ${result.sheetsStatus}`
+          );
 
           // Set redirect flag if user is interested in Frontend Intensive
           if (formData.frontendInterest === "yes") {
@@ -554,7 +558,7 @@ export default function FormX1() {
           console.error("Error submitting form:", error);
           setSubmissionStatus({
             loading: false,
-            error: "Failed to submit form. Please try again.",
+            error: `Failed to submit form: ${error.message}`,
           });
         }
       }
