@@ -1,101 +1,246 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [step, setStep] = useState(0);
+  const [formData, setFormData] = useState({
+    firstName: "",
+    email: "",
+    whatsapp: "",
+    preference: "",
+  });
+  const [errors, setErrors] = useState({});
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const questions = [
+    {
+      id: "firstName",
+      title: "What's your first name?",
+      description: "Please enter your first name",
+      component: (
+        <div className="space-y-2">
+          <Label htmlFor="firstName">First Name</Label>
+          <Input
+            id="firstName"
+            placeholder="Enter your first name"
+            value={formData.firstName}
+            onChange={(e) => handleChange("firstName", e.target.value)}
+            className={cn(errors.firstName && "border-red-500")}
+          />
+          {errors.firstName && (
+            <p className="text-sm text-red-500">{errors.firstName}</p>
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+      ),
+    },
+    {
+      id: "email",
+      title: "What's your email address?",
+      description: "We'll use this to contact you",
+      component: (
+        <div className="space-y-2">
+          <Label htmlFor="email">Email Address</Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="Enter your email address"
+            value={formData.email}
+            onChange={(e) => handleChange("email", e.target.value)}
+            className={cn(errors.email && "border-red-500")}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
+          {errors.email && (
+            <p className="text-sm text-red-500">{errors.email}</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "whatsapp",
+      title: "What's your WhatsApp number?",
+      description: "We'll use this for quick updates",
+      component: (
+        <div className="space-y-2">
+          <Label htmlFor="whatsapp">WhatsApp Number</Label>
+          <Input
+            id="whatsapp"
+            type="tel"
+            placeholder="Enter your WhatsApp number"
+            value={formData.whatsapp}
+            onChange={(e) => handleChange("whatsapp", e.target.value)}
+            className={cn(errors.whatsapp && "border-red-500")}
           />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          {errors.whatsapp && (
+            <p className="text-sm text-red-500">{errors.whatsapp}</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "preference",
+      title: "What's your preferred contact method?",
+      description: "Select one option",
+      component: (
+        <div className="space-y-3">
+          <Label>Preferred Contact Method</Label>
+          <RadioGroup
+            value={formData.preference}
+            onValueChange={(value) => handleChange("preference", value)}
+            className={cn(
+              "space-y-2",
+              errors.preference && "border-red-500 border p-2 rounded-md"
+            )}
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="email" id="email-option" />
+              <Label htmlFor="email-option">Email</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="whatsapp" id="whatsapp-option" />
+              <Label htmlFor="whatsapp-option">WhatsApp</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="both" id="both-option" />
+              <Label htmlFor="both-option">Both</Label>
+            </div>
+          </RadioGroup>
+          {errors.preference && (
+            <p className="text-sm text-red-500">{errors.preference}</p>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  const handleChange = (field, value) => {
+    setFormData({
+      ...formData,
+      [field]: value,
+    });
+
+    // Clear error when user types
+    if (errors[field]) {
+      setErrors({
+        ...errors,
+        [field]: "",
+      });
+    }
+  };
+
+  const validateStep = () => {
+    const currentQuestion = questions[step];
+    const field = currentQuestion.id;
+
+    if (!formData[field] || formData[field].trim() === "") {
+      setErrors({
+        ...errors,
+        [field]: "This field is required",
+      });
+      return false;
+    }
+
+    // Email validation
+    if (field === "email" && !/^\S+@\S+\.\S+$/.test(formData.email)) {
+      setErrors({
+        ...errors,
+        email: "Please enter a valid email address",
+      });
+      return false;
+    }
+
+    // Phone validation (simple check for now)
+    if (
+      field === "whatsapp" &&
+      !/^\+?[0-9\s]{10,15}$/.test(formData.whatsapp)
+    ) {
+      setErrors({
+        ...errors,
+        whatsapp: "Please enter a valid phone number",
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleNext = () => {
+    if (validateStep()) {
+      if (step < questions.length - 1) {
+        setStep(step + 1);
+      } else {
+        // Form submission logic
+        console.log("Form submitted:", formData);
+        alert("Form submitted successfully!");
+      }
+    }
+  };
+
+  const handlePrevious = () => {
+    if (step > 0) {
+      setStep(step - 1);
+    }
+  };
+
+  const currentQuestion = questions[step];
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6 space-y-6">
+        {/* Progress bar */}
+        <div className="w-full bg-gray-200 rounded-full h-2.5">
+          <div
+            className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-in-out"
+            style={{ width: `${((step + 1) / questions.length) * 100}%` }}
+          ></div>
+        </div>
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-4"
+          >
+            <h2 className="text-2xl font-bold text-gray-800">
+              {currentQuestion.title}
+            </h2>
+            <p className="text-gray-600">{currentQuestion.description}</p>
+            <div className="py-4">{currentQuestion.component}</div>
+          </motion.div>
+        </AnimatePresence>
+
+        <div className="flex justify-between pt-4">
+          <Button
+            variant="outline"
+            onClick={handlePrevious}
+            disabled={step === 0}
+          >
+            Back
+          </Button>
+          <Button onClick={handleNext}>
+            {step === questions.length - 1 ? "Submit" : "Next"}
+          </Button>
+        </div>
+
+        {/* Step indicator */}
+        <div className="flex justify-center space-x-2">
+          {questions.map((_, index) => (
+            <div
+              key={index}
+              className={`h-2 w-2 rounded-full ${
+                index === step ? "bg-blue-600" : "bg-gray-300"
+              }`}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
