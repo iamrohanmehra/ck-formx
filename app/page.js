@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
 export default function Home() {
   const [step, setStep] = useState(0);
@@ -17,6 +18,11 @@ export default function Home() {
     preference: "",
   });
   const [errors, setErrors] = useState({});
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submissionStatus, setSubmissionStatus] = useState({
+    loading: false,
+    error: null,
+  });
 
   const questions = [
     {
@@ -168,14 +174,39 @@ export default function Home() {
     return true;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (validateStep()) {
       if (step < questions.length - 1) {
         setStep(step + 1);
       } else {
         // Form submission logic
-        console.log("Form submitted:", formData);
-        alert("Form submitted successfully!");
+        setSubmissionStatus({ loading: true, error: null });
+
+        try {
+          // Save form data to Supabase
+          const { data, error } = await supabase
+            .from("form_submissions")
+            .insert([
+              {
+                first_name: formData.firstName,
+                email: formData.email,
+                whatsapp: formData.whatsapp,
+                preference: formData.preference,
+                form_type: "default",
+              },
+            ]);
+
+          if (error) throw error;
+
+          console.log("Form submitted to Supabase:", data);
+          setIsSubmitted(true);
+        } catch (error) {
+          console.error("Error submitting form:", error);
+          setSubmissionStatus({
+            loading: false,
+            error: "Failed to submit form. Please try again.",
+          });
+        }
       }
     }
   };
@@ -188,8 +219,34 @@ export default function Home() {
 
   const currentQuestion = questions[step];
 
+  // If the form is submitted, show the thank you message
+  if (isSubmitted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 font-karla font-normal">
+        <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8 text-left">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+            className="space-y-6"
+          >
+            <h2 className="text-[36px] text-gray-800 font-normal leading-tight">
+              Thank you {formData.firstName}!
+            </h2>
+            <p className="text-[18px] text-gray-600 font-normal">
+              For completing the onboarding!
+            </p>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <div
+      className="min-h-screen flex items-center justify-center bg-gray-50 p-4 font-karla font-normal"
+      style={{ fontFamily: "'Karla', sans-serif" }}
+    >
       <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6 space-y-6">
         {/* Progress bar */}
         <div className="w-full bg-gray-200 rounded-full h-2.5">
@@ -208,10 +265,12 @@ export default function Home() {
             transition={{ duration: 0.3 }}
             className="space-y-4"
           >
-            <h2 className="text-2xl font-bold text-gray-800">
+            <h2 className="text-2xl text-gray-800 font-normal">
               {currentQuestion.title}
             </h2>
-            <p className="text-gray-600">{currentQuestion.description}</p>
+            <p className="text-gray-600 font-normal">
+              {currentQuestion.description}
+            </p>
             <div className="py-4">{currentQuestion.component}</div>
           </motion.div>
         </AnimatePresence>
@@ -221,11 +280,20 @@ export default function Home() {
             variant="outline"
             onClick={handlePrevious}
             disabled={step === 0}
+            className="font-karla font-normal"
           >
             Back
           </Button>
-          <Button onClick={handleNext}>
-            {step === questions.length - 1 ? "Submit" : "Next"}
+          <Button
+            onClick={handleNext}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 font-karla font-normal"
+            disabled={submissionStatus.loading}
+          >
+            {submissionStatus.loading ? (
+              <span>Submitting...</span>
+            ) : (
+              <span>{step === questions.length - 1 ? "Submit" : "Next"}</span>
+            )}
           </Button>
         </div>
 
@@ -240,6 +308,13 @@ export default function Home() {
             />
           ))}
         </div>
+
+        {/* Add error message if submission fails */}
+        {submissionStatus.error && (
+          <div className="text-red-500 text-center mt-4">
+            {submissionStatus.error}
+          </div>
+        )}
       </div>
     </div>
   );
