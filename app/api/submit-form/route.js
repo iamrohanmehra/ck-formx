@@ -42,6 +42,22 @@ export async function POST(request) {
     const sheet = doc.sheetsByIndex[0];
     console.log("Using sheet:", sheet.title);
 
+    // Prepare form-specific fields
+    const formSpecificData = {};
+
+    // Add form-specific fields based on what's available
+    if (formData.recommendation !== undefined) {
+      formSpecificData.recommendation = formData.recommendation;
+    }
+
+    if (formData.income !== undefined) {
+      formSpecificData.income = formData.income;
+    }
+
+    if (formData.frontendInterest !== undefined) {
+      formSpecificData.frontend_interest = formData.frontendInterest;
+    }
+
     // Add a row with the form data
     console.log("Adding row to sheet...");
     await sheet.addRow({
@@ -51,10 +67,13 @@ export async function POST(request) {
       whatsapp: formData.whatsapp || "",
       preference: formData.preference || "",
       occupation: formData.occupation || "",
-      recommendation: formData.recommendation || "",
-      income: formData.income || "",
-      frontend_interest: formData.frontendInterest || "",
       form_type: formData.form_type || "formx1",
+      // Add form-specific fields
+      recommendation: formSpecificData.recommendation || "",
+      income: formSpecificData.income || "",
+      frontend_interest: formSpecificData.frontend_interest || "",
+      // Add a JSON string of all form-specific data for future reference
+      form_data: JSON.stringify(formSpecificData),
     });
 
     console.log("Row added successfully");

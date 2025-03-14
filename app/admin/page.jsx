@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { motion } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
@@ -30,56 +29,29 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
 
-      // Get Supabase credentials from environment variables
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      console.log("Fetching forms from API...");
+      const response = await fetch("/api/admin/forms");
+      const data = await response.json();
 
-      console.log("Supabase URL available:", !!supabaseUrl);
-      console.log("Supabase Anon Key available:", !!supabaseAnonKey);
-
-      if (!supabaseUrl || !supabaseAnonKey) {
-        throw new Error("Missing Supabase credentials");
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch forms");
       }
 
-      // Create Supabase client
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-      // Get all form submissions
-      const { data: submissions, error: submissionsError } = await supabase
-        .from("form_submissions")
-        .select("form_type");
-
-      if (submissionsError) {
-        console.error("Error fetching submissions:", submissionsError);
-        throw submissionsError;
+      if (!data.success) {
+        throw new Error(data.error || "Failed to fetch forms");
       }
 
-      if (submissions && submissions.length > 0) {
-        console.log("Found submissions:", submissions.length);
+      console.log("Forms data:", data);
 
-        // Extract unique form types
-        const uniqueFormTypes = [
-          ...new Set(submissions.map((item) => item.form_type)),
-        ];
-        console.log("Unique form types:", uniqueFormTypes);
-
-        // Create form objects from unique form types
-        const derivedForms = uniqueFormTypes.map((formType) => ({
-          id: formType,
-          title: `${formType.charAt(0).toUpperCase() + formType.slice(1)}`,
-          is_active: true,
-          form_type: formType,
-        }));
-
-        setForms(derivedForms);
-        if (derivedForms.length > 0) {
-          setSelectedForm(derivedForms[0]);
-          fetchSubmissions(derivedForms[0].form_type);
-        }
+      if (data.forms && data.forms.length > 0) {
+        setForms(data.forms);
+        setSelectedForm(data.forms[0]);
+        fetchSubmissions(data.forms[0].form_type);
       } else {
-        // No submissions found
-        console.log("No submissions found");
         setForms([]);
+        setError(
+          "No form submissions found in the database. Please submit at least one form."
+        );
       }
 
       setLoading(false);
@@ -94,30 +66,22 @@ export default function AdminDashboard() {
     try {
       setLoading(true);
 
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-      if (!supabaseUrl || !supabaseAnonKey) {
-        throw new Error("Missing Supabase credentials");
-      }
-
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
       console.log("Fetching submissions for form type:", formType);
+      const response = await fetch(
+        `/api/admin/submissions?form_type=${formType}`
+      );
+      const data = await response.json();
 
-      // Fetch submissions for the selected form
-      const { data, error } = await supabase
-        .from("form_submissions")
-        .select("*")
-        .eq("form_type", formType);
-
-      if (error) {
-        console.error("Error fetching submissions:", error);
-        throw error;
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch submissions");
       }
 
-      console.log(`Found ${data?.length || 0} submissions`);
-      setSubmissions(data || []);
+      if (!data.success) {
+        throw new Error(data.error || "Failed to fetch submissions");
+      }
+
+      console.log(`Found ${data.submissions?.length || 0} submissions`);
+      setSubmissions(data.submissions || []);
       setLoading(false);
     } catch (err) {
       console.error("Error fetching submissions:", err);
@@ -151,6 +115,73 @@ export default function AdminDashboard() {
     fetchSubmissions(form.form_type);
   };
 
+  // Generate table headers based on form type
+  const getTableHeaders = (formType) => {
+    // Common headers for all forms
+    const commonHeaders = [
+      { key: "first_name", label: "Name" },
+      { key: "email", label: "Email" },
+      { key: "whatsapp", label: "WhatsApp" },
+      { key: "preference", label: "Preference" },
+      { key: "occupation", label: "Occupation" },
+    ];
+
+    // Form-specific headers
+    let formSpecificHeaders = [];
+
+    if (formType === "formx1") {
+      formSpecificHeaders = [
+        { key: "form_data.recommendation", label: "Recommendation" },
+      ];
+    } else if (formType === "formx4") {
+      formSpecificHeaders = [
+        { key: "form_data.frontend_interest", label: "Frontend Interest" },
+        { key: "form_data.income", label: "Income Range" },
+      ];
+    }
+
+    // Add created_at as the last column
+    return [
+      ...commonHeaders,
+      ...formSpecificHeaders,
+      { key: "created_at", label: "Date Submitted" },
+    ];
+  };
+
+  // Get a value from a submission using a key path (e.g., 'form_data.recommendation')
+  const getSubmissionValue = (submission, keyPath) => {
+    if (!submission) return null;
+
+    if (!keyPath.includes(".")) {
+      return submission[keyPath];
+    }
+
+    const [parent, child] = keyPath.split(".");
+
+    // Handle form_data as an object
+    if (submission[parent] && typeof submission[parent] === "object") {
+      return submission[parent][child];
+    }
+
+    // Handle form_data as a string
+    if (parent === "form_data" && typeof submission[parent] === "string") {
+      try {
+        const formData = JSON.parse(submission[parent]);
+        return formData[child];
+      } catch (e) {
+        console.error("Error parsing form_data:", e);
+        return null;
+      }
+    }
+
+    // Handle legacy fields
+    if (parent === "form_data" && submission[child] !== undefined) {
+      return submission[child];
+    }
+
+    return null;
+  };
+
   return (
     <div className="min-h-screen bg-white font-karla">
       <div className="container mx-auto p-6">
@@ -170,6 +201,39 @@ export default function AdminDashboard() {
           {error && (
             <div className="bg-red-50 p-4 rounded-lg mb-6">
               <p className="text-red-500">Error: {error}</p>
+              <div className="mt-4">
+                <h3 className="font-medium text-red-800">Troubleshooting:</h3>
+                <ul className="list-disc list-inside mt-2 text-sm text-red-700">
+                  <li>
+                    Check that your Supabase credentials are correctly set in
+                    your environment variables
+                  </li>
+                  <li>
+                    Verify that your Supabase project is running and accessible
+                  </li>
+                  <li>
+                    Make sure the form_submissions table exists in your database
+                  </li>
+                  <li>Verify that you have submitted at least one form</li>
+                  <li>
+                    If you've recently updated your schema, run the migration at{" "}
+                    <a href="/admin/migration" className="underline">
+                      Migration Helper
+                    </a>
+                  </li>
+                  <li>
+                    Check the{" "}
+                    <a
+                      href="/api/debug-supabase"
+                      className="underline"
+                      target="_blank"
+                    >
+                      Debug API
+                    </a>{" "}
+                    for more information
+                  </li>
+                </ul>
+              </div>
             </div>
           )}
 
@@ -263,19 +327,22 @@ export default function AdminDashboard() {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Email</TableHead>
-                            <TableHead>WhatsApp</TableHead>
-                            <TableHead>Preference</TableHead>
-                            <TableHead>Occupation</TableHead>
-                            <TableHead>Date Submitted</TableHead>
+                            {getTableHeaders(selectedForm.form_type).map(
+                              (header) => (
+                                <TableHead key={header.key}>
+                                  {header.label}
+                                </TableHead>
+                              )
+                            )}
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {submissions.length === 0 ? (
                             <TableRow>
                               <TableCell
-                                colSpan={6}
+                                colSpan={
+                                  getTableHeaders(selectedForm.form_type).length
+                                }
                                 className="text-center py-4"
                               >
                                 No submissions found
@@ -284,18 +351,27 @@ export default function AdminDashboard() {
                           ) : (
                             submissions.map((submission) => (
                               <TableRow key={submission.id}>
-                                <TableCell className="font-medium">
-                                  {submission.first_name}
-                                </TableCell>
-                                <TableCell>{submission.email}</TableCell>
-                                <TableCell>{submission.whatsapp}</TableCell>
-                                <TableCell>{submission.preference}</TableCell>
-                                <TableCell>{submission.occupation}</TableCell>
-                                <TableCell>
-                                  {new Date(
-                                    submission.created_at
-                                  ).toLocaleDateString()}
-                                </TableCell>
+                                {getTableHeaders(selectedForm.form_type).map(
+                                  (header) => (
+                                    <TableCell
+                                      key={header.key}
+                                      className={
+                                        header.key === "first_name"
+                                          ? "font-medium"
+                                          : ""
+                                      }
+                                    >
+                                      {header.key === "created_at"
+                                        ? new Date(
+                                            submission.created_at
+                                          ).toLocaleDateString()
+                                        : getSubmissionValue(
+                                            submission,
+                                            header.key
+                                          )}
+                                    </TableCell>
+                                  )
+                                )}
                               </TableRow>
                             ))
                           )}

@@ -51,17 +51,39 @@ export async function submitForm(formData) {
         console.log("Creating Supabase client...");
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        console.log("Saving to Supabase...");
-        const { data, error } = await supabase.from("form_submissions").insert({
+        // Separate common fields from form-specific fields
+        const commonFields = {
           first_name: formData.firstName,
           email: formData.email,
           whatsapp: formData.whatsapp,
           preference: formData.preference,
           occupation: formData.occupation || null,
-          recommendation: formData.recommendation || null,
-          income: formData.income || null,
-          frontend_interest: formData.frontendInterest || null,
           form_type: formData.form_type || "formx1",
+        };
+
+        // Form-specific fields go into form_data JSON
+        const formSpecificFields = {};
+
+        // Add form-specific fields based on form type and occupation
+        if (formData.recommendation !== undefined) {
+          formSpecificFields.recommendation = formData.recommendation;
+        }
+
+        if (formData.income !== undefined) {
+          formSpecificFields.income = formData.income;
+        }
+
+        if (formData.frontendInterest !== undefined) {
+          formSpecificFields.frontend_interest = formData.frontendInterest;
+        }
+
+        console.log("Saving to Supabase...");
+        console.log("Common fields:", commonFields);
+        console.log("Form-specific fields:", formSpecificFields);
+
+        const { data, error } = await supabase.from("form_submissions").insert({
+          ...commonFields,
+          form_data: formSpecificFields,
         });
 
         if (error) {
