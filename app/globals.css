@@ -126,3 +126,39 @@
     font-family: var(--font-karla);
   }
 }
+
+/* Karla font weight utility classes */
+.font-karla-extralight {
+  font-family: var(--font-karla);
+  font-weight: 200;
+}
+
+.font-karla-light {
+  font-family: var(--font-karla);
+  font-weight: 300;
+}
+
+.font-karla-regular {
+  font-family: var(--font-karla);
+  font-weight: 400;
+}
+
+.font-karla-medium {
+  font-family: var(--font-karla);
+  font-weight: 500;
+}
+
+.font-karla-semibold {
+  font-family: var(--font-karla);
+  font-weight: 600;
+}
+
+.font-karla-bold {
+  font-family: var(--font-karla);
+  font-weight: 700;
+}
+
+.font-karla-extrabold {
+  font-family: var(--font-karla);
+  font-weight: 800;
+}

@@ -54,7 +54,7 @@ export async function POST(request) {
       recommendation: formData.recommendation || "",
       income: formData.income || "",
       frontend_interest: formData.frontendInterest || "",
-      form_type: "formx1",
+      form_type: formData.form_type || "formx1",
     });
 
     console.log("Row added successfully");

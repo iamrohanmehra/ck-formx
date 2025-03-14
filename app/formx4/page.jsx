@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { submitForm } from "@/app/actions";
+import { ChevronRight } from "lucide-react";
 
 export default function FormX1() {
   const router = useRouter();
@@ -61,7 +62,7 @@ export default function FormX1() {
             value={formData.firstName}
             onChange={(e) => handleChange("firstName", e.target.value)}
             className={cn(
-              "border-0 border-b-2 rounded-none px-0 py-0 pb-[8px] text-[24px] leading-[32px] w-full focus-visible:ring-0 focus-visible:border-blue-500 transition-colors placeholder:text-[#37404A80]",
+              "border-0 border-b-2 rounded-none px-0 py-0 pb-[8px] text-[24px] text-[#5c5c5c] leading-[32px] w-full focus-visible:ring-0 focus-visible:border-[#37404A] transition-colors placeholder:text-[#37404A80]",
               errors.firstName ? "border-red-500" : "border-gray-300"
             )}
             autoFocus
@@ -626,7 +627,7 @@ export default function FormX1() {
 
   return (
     <div
-      className="h-[100dvh] w-full flex flex-col justify-center items-center bg-white font-karla font-normal overflow-hidden"
+      className="h-[100dvh] w-full flex flex-col justify-center items-center bg-white font-karla font-normal overflow-hidden mt-[-2.75vh]"
       style={{ fontFamily: "'Karla', sans-serif" }}
     >
       <div className="w-full max-w-[628px] flex flex-col justify-center px-4">
@@ -645,7 +646,7 @@ export default function FormX1() {
                 <p className="text-[14px] sm:text-[16px] leading-[20px] sm:leading-[24px] text-[#37404A80] font-normal">
                   Question {step + 1} <span className="text-red-500">*</span>
                 </p>
-                <h2 className="text-[18px] sm:text-[20px] md:text-[24px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-[#37404A] font-normal">
+                <h2 className="text-[18px] sm:text-[20px] mb-9 md:text-[24px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-[#37404a] font-medium">
                   {currentQuestion.title}
                 </h2>
               </div>
@@ -670,8 +671,11 @@ export default function FormX1() {
                   {submissionStatus.loading ? (
                     <span>Submitting...</span>
                   ) : (
-                    <span>
+                    <span className="flex items-center">
                       {step === questions.length - 1 ? "Submit" : "Next"}
+                      {step !== questions.length - 1 && (
+                        <ChevronRight className="ml-4 h-5 w-5" />
+                      )}
                     </span>
                   )}
                 </Button>

@@ -61,7 +61,7 @@ export async function submitForm(formData) {
           recommendation: formData.recommendation || null,
           income: formData.income || null,
           frontend_interest: formData.frontendInterest || null,
-          form_type: "formx1",
+          form_type: formData.form_type || "formx1",
         });
 
         if (error) {
