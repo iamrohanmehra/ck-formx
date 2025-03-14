@@ -31,6 +31,59 @@ try {
   supabase = mockSupabase;
 }
 
+// Check if a form is active
+export async function isFormActive(formType) {
+  try {
+    // If we're in mock mode, assume the form is active
+    if (process.env.MOCK_SUPABASE === "true") {
+      console.log("Mock mode: Assuming form is active");
+      return true;
+    }
+
+    // Get Supabase credentials
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      console.warn("Missing Supabase credentials, assuming form is active");
+      return true;
+    }
+
+    // Create Supabase client
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Query the form status
+    const { data, error } = await supabase
+      .from("form_status")
+      .select("is_active")
+      .eq("form_type", formType)
+      .single();
+
+    if (error) {
+      // If the table doesn't exist or there's another error, assume the form is active
+      if (error.code === "42P01") {
+        console.warn(
+          `form_status table doesn't exist, assuming form ${formType} is active`
+        );
+        return true;
+      }
+
+      console.error(`Error checking if form ${formType} is active:`, error);
+      // If there's an error, assume the form is active to prevent blocking legitimate submissions
+      return true;
+    }
+
+    return data ? data.is_active : true;
+  } catch (error) {
+    console.error(
+      `Unexpected error checking if form ${formType} is active:`,
+      error
+    );
+    // If there's an error, assume the form is active to prevent blocking legitimate submissions
+    return true;
+  }
+}
+
 export async function submitForm(formData) {
   console.log("Form data received:", formData);
 
@@ -45,6 +98,22 @@ export async function submitForm(formData) {
     let supabaseResult = { success: false, data: null, error: null };
     let sheetsResult = { success: false, error: null };
 
+    // Check if form_type is provided
+    if (!formData.form_type) {
+      console.warn("No form_type provided, defaulting to 'formx1'");
+      formData.form_type = "formx1";
+    }
+
+    // Check if the form is active
+    const formActive = await isFormActive(formData.form_type);
+    if (!formActive) {
+      return {
+        success: false,
+        error: "This form is currently not accepting submissions.",
+        formInactive: true,
+      };
+    }
+
     // Try Supabase first
     if (supabaseUrl && supabaseServiceKey) {
       try {
@@ -58,7 +127,7 @@ export async function submitForm(formData) {
           whatsapp: formData.whatsapp,
           preference: formData.preference,
           occupation: formData.occupation || null,
-          form_type: formData.form_type || "formx1",
+          form_type: formData.form_type || "formx1", // Default to formx1 if not provided
         };
 
         // Form-specific fields go into form_data JSON

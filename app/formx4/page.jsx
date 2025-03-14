@@ -10,8 +10,9 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { submitForm } from "@/app/actions";
 import { ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
+import FormInactive from "../components/FormInactive";
 
-export default function FormX1() {
+export default function FormX4() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [formData, setFormData] = useState({
@@ -32,6 +33,34 @@ export default function FormX1() {
   });
   const [shouldRedirect, setShouldRedirect] = useState(false);
   const [redirectCountdown, setRedirectCountdown] = useState(3);
+  const [formActive, setFormActive] = useState(true);
+  const [checkingStatus, setCheckingStatus] = useState(true);
+
+  // Check if the form is active
+  useEffect(() => {
+    const checkFormStatus = async () => {
+      try {
+        setCheckingStatus(true);
+        const response = await fetch("/api/form-status?form_type=formx4");
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          setFormActive(data.is_active);
+        } else {
+          // If there's an error, assume the form is active
+          console.error("Error checking form status:", data.error);
+          setFormActive(true);
+        }
+      } catch (error) {
+        console.error("Error checking form status:", error);
+        setFormActive(true);
+      } finally {
+        setCheckingStatus(false);
+      }
+    };
+
+    checkFormStatus();
+  }, []);
 
   // Handle redirection countdown
   useEffect(() => {
@@ -536,11 +565,19 @@ export default function FormX1() {
             recommendation: formData.recommendation || null,
             income: formData.income || null,
             frontendInterest: formData.frontendInterest || null,
+            form_type: "formx4",
           });
 
           console.log("Form submission result:", result);
 
           if (!result.success) {
+            // Check if the form is inactive
+            if (result.formInactive) {
+              setFormActive(false);
+              throw new Error(
+                "This form is currently not accepting submissions."
+              );
+            }
             throw new Error(result.error || "Unknown error occurred");
           }
 
@@ -604,6 +641,20 @@ export default function FormX1() {
 
     return true;
   };
+
+  // If the form is inactive, show the inactive message
+  if (!formActive && !checkingStatus) {
+    return <FormInactive formTitle="FormX4" />;
+  }
+
+  // If checking status, show loading
+  if (checkingStatus) {
+    return (
+      <div className="h-[100dvh] w-full flex flex-col justify-center items-center bg-white font-karla font-normal overflow-hidden">
+        <p className="text-[18px] text-[#37404AB3]">Loading...</p>
+      </div>
+    );
+  }
 
   // If the form is submitted, show the thank you message
   if (isSubmitted) {

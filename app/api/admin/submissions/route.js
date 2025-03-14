@@ -49,40 +49,40 @@ export async function GET(request) {
     // Process form_data if it exists
     const processedData =
       data?.map((submission) => {
+        // Create a new processed submission object
+        const processedSubmission = { ...submission };
+
         // If form_data is a string, try to parse it
         if (submission.form_data && typeof submission.form_data === "string") {
           try {
-            submission.form_data = JSON.parse(submission.form_data);
+            processedSubmission.form_data = JSON.parse(submission.form_data);
           } catch (e) {
             console.error("Error parsing form_data:", e);
-            submission.form_data = {};
+            processedSubmission.form_data = {};
           }
         } else if (!submission.form_data) {
           // If form_data doesn't exist, create an empty object
-          submission.form_data = {};
-
-          // Move legacy fields to form_data if they exist
-          if (
-            submission.recommendation !== undefined &&
-            submission.recommendation !== null
-          ) {
-            submission.form_data.recommendation = submission.recommendation;
-          }
-
-          if (submission.income !== undefined && submission.income !== null) {
-            submission.form_data.income = submission.income;
-          }
-
-          if (
-            submission.frontend_interest !== undefined &&
-            submission.frontend_interest !== null
-          ) {
-            submission.form_data.frontend_interest =
-              submission.frontend_interest;
-          }
+          processedSubmission.form_data = {};
         }
 
-        return submission;
+        // Move legacy fields to form_data if they exist
+        const legacyFields = [
+          "recommendation",
+          "income",
+          "frontend_interest",
+          "frontendInterest",
+        ];
+
+        legacyFields.forEach((field) => {
+          if (submission[field] !== undefined && submission[field] !== null) {
+            // Handle the case where frontendInterest should be stored as frontend_interest
+            const formDataKey =
+              field === "frontendInterest" ? "frontend_interest" : field;
+            processedSubmission.form_data[formDataKey] = submission[field];
+          }
+        });
+
+        return processedSubmission;
       }) || [];
 
     return NextResponse.json({

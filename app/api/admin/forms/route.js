@@ -43,6 +43,16 @@ export async function GET() {
 
       console.log("Unique form types:", uniqueFormTypes);
 
+      // Calculate submission counts for each form type
+      const submissionCounts = {};
+      uniqueFormTypes.forEach((formType) => {
+        submissionCounts[formType] = submissions.filter(
+          (submission) => submission.form_type === formType
+        ).length;
+      });
+
+      console.log("Submission counts:", submissionCounts);
+
       // Create form objects from unique form types
       const derivedForms = uniqueFormTypes.map((formType) => ({
         id: formType,
@@ -56,6 +66,7 @@ export async function GET() {
       return NextResponse.json({
         success: true,
         forms: derivedForms,
+        submissionCounts,
       });
     } else {
       // No submissions found
