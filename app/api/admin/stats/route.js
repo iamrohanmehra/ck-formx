@@ -1,8 +1,35 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+// Simple in-memory cache with expiration
+let statsCache = {
+  data: null,
+  timestamp: 0,
+  expiryTime: 5 * 60 * 1000, // 5 minutes
+};
+
+export async function GET(request) {
   try {
+    // Get query parameters
+    const { searchParams } = new URL(request.url);
+    const refreshCache = searchParams.get("refresh") === "true";
+    const dateRange = parseInt(searchParams.get("dateRange") || "30");
+
+    // Check if we have valid cached data and no refresh is requested
+    const now = Date.now();
+    if (
+      !refreshCache &&
+      statsCache.data &&
+      now - statsCache.timestamp < statsCache.expiryTime
+    ) {
+      console.log("Returning cached stats data");
+      return NextResponse.json({
+        success: true,
+        stats: statsCache.data,
+        fromCache: true,
+      });
+    }
+
     // Get Supabase credentials
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -17,63 +44,102 @@ export async function GET() {
     // Create Supabase client with service key
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get all form submissions
-    console.log("Fetching all submissions for stats...");
-    const { data: submissions, error: submissionsError } = await supabase
-      .from("form_submissions")
-      .select("*");
+    // If refresh is requested, refresh the materialized views
+    if (refreshCache) {
+      console.log("Refreshing materialized views");
+      await supabase.rpc("refresh_form_stats");
+    }
 
-    if (submissionsError) {
-      console.error("Error fetching submissions:", submissionsError);
+    // Get total submissions from materialized view
+    const { data: totalData, error: totalError } = await supabase
+      .from("form_stats_overall")
+      .select("total_submissions")
+      .single();
+
+    if (totalError) {
+      console.error("Error fetching total submissions:", totalError);
       return NextResponse.json(
-        { success: false, error: submissionsError.message },
+        { success: false, error: totalError.message },
         { status: 500 }
       );
     }
 
-    console.log(`Found ${submissions?.length || 0} total submissions`);
+    // Get submissions by form type from materialized view
+    const { data: formTypeData, error: formTypeError } = await supabase
+      .from("form_stats_by_type")
+      .select("form_type, count");
 
-    // Calculate stats
+    if (formTypeError) {
+      console.error("Error fetching form type stats:", formTypeError);
+      return NextResponse.json(
+        { success: false, error: formTypeError.message },
+        { status: 500 }
+      );
+    }
+
+    // Get submissions by occupation from materialized view
+    const { data: occupationData, error: occupationError } = await supabase
+      .from("form_stats_by_occupation")
+      .select("occupation, count");
+
+    if (occupationError) {
+      console.error("Error fetching occupation stats:", occupationError);
+      return NextResponse.json(
+        { success: false, error: occupationError.message },
+        { status: 500 }
+      );
+    }
+
+    // Get submissions by date using the function
+    const { data: dateData, error: dateError } = await supabase.rpc(
+      "get_submissions_by_date",
+      { days_limit: dateRange }
+    );
+
+    if (dateError) {
+      console.error("Error fetching date stats:", dateError);
+      return NextResponse.json(
+        { success: false, error: dateError.message },
+        { status: 500 }
+      );
+    }
+
+    // Format the data for the frontend
+    const submissionsByFormType = {};
+    formTypeData.forEach((item) => {
+      submissionsByFormType[item.form_type] = item.count;
+    });
+
+    const submissionsByOccupation = {};
+    occupationData.forEach((item) => {
+      submissionsByOccupation[item.occupation] = item.count;
+    });
+
+    const submissionsByDate = {};
+    dateData.forEach((item) => {
+      submissionsByDate[item.submission_date] = item.count;
+    });
+
+    // Compile stats
     const stats = {
-      totalSubmissions: submissions?.length || 0,
-      submissionsByFormType: {},
-      submissionsByDate: {},
-      submissionsByOccupation: {},
+      totalSubmissions: totalData?.total_submissions || 0,
+      submissionsByFormType,
+      submissionsByOccupation,
+      submissionsByDate,
+      lastUpdated: new Date().toISOString(),
     };
 
-    // Process submissions
-    if (submissions && submissions.length > 0) {
-      // Group by form type
-      submissions.forEach((submission) => {
-        const formType = submission.form_type || "unknown";
-
-        // Count by form type
-        if (!stats.submissionsByFormType[formType]) {
-          stats.submissionsByFormType[formType] = 0;
-        }
-        stats.submissionsByFormType[formType]++;
-
-        // Count by date (using just the date part)
-        const submissionDate = new Date(submission.created_at)
-          .toISOString()
-          .split("T")[0];
-        if (!stats.submissionsByDate[submissionDate]) {
-          stats.submissionsByDate[submissionDate] = 0;
-        }
-        stats.submissionsByDate[submissionDate]++;
-
-        // Count by occupation
-        const occupation = submission.occupation || "unknown";
-        if (!stats.submissionsByOccupation[occupation]) {
-          stats.submissionsByOccupation[occupation] = 0;
-        }
-        stats.submissionsByOccupation[occupation]++;
-      });
-    }
+    // Update cache
+    statsCache = {
+      data: stats,
+      timestamp: now,
+      expiryTime: 5 * 60 * 1000,
+    };
 
     return NextResponse.json({
       success: true,
       stats,
+      refreshed: refreshCache,
     });
   } catch (error) {
     console.error("Error generating stats:", error);
