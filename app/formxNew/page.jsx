@@ -92,8 +92,15 @@ export default function FormX4() {
             onChange={(e) => handleChange("firstName", e.target.value)}
             className={cn(
               "border-0 border-b-2 rounded-none px-0 py-0 pb-[8px] text-[24px] text-[#5c5c5c] leading-[32px] w-full focus-visible:ring-0 focus-visible:border-[#37404A] transition-colors placeholder:text-[#37404A80]",
+              "!pl-0 !pr-0 !m-0",
               errors.firstName ? "border-red-500" : "border-gray-300"
             )}
+            style={{
+              paddingLeft: 0,
+              paddingRight: 0,
+              marginLeft: 0,
+              marginRight: 0,
+            }}
             autoFocus
           />
           {errors.firstName && (
@@ -115,8 +122,15 @@ export default function FormX4() {
             onChange={(e) => handleChange("email", e.target.value)}
             className={cn(
               "border-0 border-b-2 rounded-none px-0 py-0 pb-[8px] text-[24px] leading-[32px] w-full focus-visible:ring-0 focus-visible:border-[#37404A] transition-colors placeholder:text-[#37404A80]",
+              "!pl-0 !pr-0 !m-0",
               errors.email ? "border-red-500" : "border-gray-300"
             )}
+            style={{
+              paddingLeft: 0,
+              paddingRight: 0,
+              marginLeft: 0,
+              marginRight: 0,
+            }}
             autoFocus
           />
           {errors.email && (
@@ -138,8 +152,15 @@ export default function FormX4() {
             onChange={(e) => handleChange("whatsapp", e.target.value)}
             className={cn(
               "border-0 border-b-2 rounded-none px-0 py-0 pb-[8px] text-[24px] leading-[32px] w-full focus-visible:ring-0 focus-visible:border-[#37404A] transition-colors placeholder:text-[#37404A80]",
+              "!pl-0 !pr-0 !m-0",
               errors.whatsapp ? "border-red-500" : "border-gray-300"
             )}
+            style={{
+              paddingLeft: 0,
+              paddingRight: 0,
+              marginLeft: 0,
+              marginRight: 0,
+            }}
             autoFocus
           />
           {errors.whatsapp && (

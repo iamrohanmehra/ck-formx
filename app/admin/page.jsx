@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { useRouter } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -12,6 +14,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+// List of authorized admin emails
+const AUTHORIZED_ADMINS = [
+  "rohanmehra224466@gmail.com",
+  "ashish.efslon@gmail.com",
+];
 
 export default function AdminDashboard() {
   const [forms, setForms] = useState([]);
@@ -22,11 +38,47 @@ export default function AdminDashboard() {
   const [error, setError] = useState(null);
   const [selectedForm, setSelectedForm] = useState(null);
   const [showSubmissions, setShowSubmissions] = useState(false);
+  const [user, setUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // State for the confirmation modal
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [formToToggle, setFormToToggle] = useState(null);
+
+  const router = useRouter();
+  const supabase = createClientComponentClient();
 
   useEffect(() => {
-    fetchForms();
-    fetchStats();
-  }, []);
+    // Check authentication
+    const checkAuth = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session) {
+          router.push("/admin/login");
+          return;
+        }
+
+        if (!AUTHORIZED_ADMINS.includes(session.user.email)) {
+          await supabase.auth.signOut();
+          router.push("/admin/login");
+          return;
+        }
+
+        setUser(session.user);
+        setAuthChecked(true);
+        fetchForms();
+        fetchStats();
+      } catch (error) {
+        console.error("Auth check error:", error);
+        router.push("/admin/login");
+      }
+    };
+
+    checkAuth();
+  }, [router, supabase]);
 
   const fetchForms = async () => {
     try {
@@ -129,9 +181,31 @@ export default function AdminDashboard() {
     }
   };
 
+  // Show confirmation modal before toggling form status
+  const handleToggleClick = (formId, currentStatus) => {
+    setFormToToggle({ id: formId, currentStatus });
+    setShowConfirmModal(true);
+  };
+
+  // Handle confirmation modal response
+  const handleConfirmToggle = async (confirmed) => {
+    setShowConfirmModal(false);
+
+    if (confirmed && formToToggle) {
+      await toggleFormStatus(formToToggle.id, formToToggle.currentStatus);
+    }
+
+    setFormToToggle(null);
+  };
+
   const toggleFormStatus = async (formId, currentStatus) => {
     try {
-      setLoading(true);
+      // Update the local state
+      setForms(
+        forms.map((form) =>
+          form.id === formId ? { ...form, is_active: !currentStatus } : form
+        )
+      );
 
       // Call the API to toggle the form status
       const response = await fetch("/api/admin/toggle-form-status", {
@@ -156,25 +230,17 @@ export default function AdminDashboard() {
       }
 
       console.log("Form status toggled:", data);
+    } catch (err) {
+      console.error("Error toggling form status:", err);
 
-      // Update the local state
+      // Revert the local state change if there was an error
       setForms(
         forms.map((form) =>
-          form.id === formId ? { ...form, is_active: !currentStatus } : form
+          form.id === formId ? { ...form, is_active: currentStatus } : form
         )
       );
 
-      // Show a success message
-      alert(data.message || `Form status updated successfully.`);
-
-      setLoading(false);
-    } catch (err) {
-      console.error("Error toggling form status:", err);
-      setError(err.message || "Failed to toggle form status");
-      setLoading(false);
-
-      // Show an error message
-      alert(`Error: ${err.message || "Failed to toggle form status"}`);
+      setError(`Failed to toggle form status: ${err.message}`);
     }
   };
 
@@ -279,6 +345,23 @@ export default function AdminDashboard() {
     return null;
   };
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push("/admin/login");
+  };
+
+  // Only render the dashboard content if authentication has been checked
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-white font-karla flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#37404A]"></div>
+          <p className="mt-4 text-[#37404A]">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white font-karla">
       <div className="container mx-auto p-6">
@@ -294,15 +377,31 @@ export default function AdminDashboard() {
                 : "Admin Dashboard"}
             </h1>
 
-            {showSubmissions && selectedForm && (
-              <Button
-                variant="outline"
-                onClick={() => setShowSubmissions(false)}
-                className="bg-white hover:bg-[#37404acc] text-[#37404A] rounded-[6px]"
-              >
-                Back to Dashboard
-              </Button>
-            )}
+            <div className="flex items-center gap-4">
+              {user && (
+                <div className="text-sm text-gray-600">
+                  Logged in as: {user.email}
+                </div>
+              )}
+
+              {showSubmissions && selectedForm ? (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowSubmissions(false)}
+                  className="bg-white hover:bg-[#37404acc] text-[#37404A] rounded-[6px]"
+                >
+                  Back to Dashboard
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={handleSignOut}
+                  className="bg-white hover:bg-red-100 text-red-600 border-red-200 rounded-[6px]"
+                >
+                  Sign Out
+                </Button>
+              )}
+            </div>
           </div>
 
           {loading && (
@@ -485,11 +584,15 @@ export default function AdminDashboard() {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Form Title</TableHead>
-                            <TableHead>Form Type</TableHead>
-                            <TableHead>Submissions</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Actions</TableHead>
+                            <TableHead className="w-[25%]">
+                              Form Title
+                            </TableHead>
+                            <TableHead className="w-[20%]">Form Type</TableHead>
+                            <TableHead className="w-[15%]">
+                              Submissions
+                            </TableHead>
+                            <TableHead className="w-[20%]">Status</TableHead>
+                            <TableHead className="w-[20%]">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -510,17 +613,21 @@ export default function AdminDashboard() {
 
                               return (
                                 <TableRow key={form.id}>
-                                  <TableCell className="font-medium">
+                                  <TableCell className="font-medium w-[25%]">
                                     {form.title}
                                   </TableCell>
-                                  <TableCell>{form.form_type}</TableCell>
-                                  <TableCell>{submissionCount}</TableCell>
-                                  <TableCell>
+                                  <TableCell className="w-[20%]">
+                                    {form.form_type}
+                                  </TableCell>
+                                  <TableCell className="w-[15%]">
+                                    {submissionCount}
+                                  </TableCell>
+                                  <TableCell className="w-[20%]">
                                     <div className="flex items-center space-x-2">
                                       <Switch
                                         checked={form.is_active}
                                         onCheckedChange={() =>
-                                          toggleFormStatus(
+                                          handleToggleClick(
                                             form.id,
                                             form.is_active
                                           )
@@ -537,7 +644,7 @@ export default function AdminDashboard() {
                                       </span>
                                     </div>
                                   </TableCell>
-                                  <TableCell>
+                                  <TableCell className="w-[20%]">
                                     <Button
                                       variant="outline"
                                       onClick={() => handleFormSelect(form)}
@@ -621,6 +728,60 @@ export default function AdminDashboard() {
           )}
         </motion.div>
       </div>
+
+      {/* Confirmation Modal */}
+      <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Status Change</DialogTitle>
+            <DialogDescription>
+              {formToToggle && (
+                <>
+                  Are you sure you want to{" "}
+                  {formToToggle.currentStatus ? "deactivate" : "activate"} this
+                  form?
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Status message outside of DialogDescription to avoid nested p tags */}
+          {formToToggle && (
+            <div
+              className={
+                formToToggle.currentStatus
+                  ? "text-red-600 mt-2"
+                  : "text-green-600 mt-2"
+              }
+            >
+              {formToToggle.currentStatus
+                ? "When inactive, users will not be able to submit this form."
+                : "When active, users will be able to submit this form."}
+            </div>
+          )}
+
+          <DialogFooter className="flex justify-end gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleConfirmToggle(false)}
+            >
+              No
+            </Button>
+            <Button
+              type="button"
+              onClick={() => handleConfirmToggle(true)}
+              className={
+                formToToggle?.currentStatus
+                  ? "bg-red-600 hover:bg-red-700"
+                  : "bg-green-600 hover:bg-green-700"
+              }
+            >
+              Yes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

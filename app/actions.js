@@ -178,38 +178,88 @@ export async function submitForm(formData) {
       const baseUrl =
         process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
-      const response = await fetch(`${baseUrl}/api/submit-form`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
+      console.log("Using base URL:", baseUrl);
+      console.log("Full API URL:", `${baseUrl}/api/submit-form`);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      // Set a timeout for the fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
 
-      const result = await response.json();
-      if (!result.success) {
-        console.error("Google Sheets error:", result.error);
-        sheetsResult.error = result.error;
-      } else {
-        console.log("Google Sheets save successful");
-        sheetsResult.success = true;
+      try {
+        // First attempt with normal timeout
+        const response = await fetch(`${baseUrl}/api/submit-form`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId); // Clear the timeout if the request completes
+
+        console.log("Google Sheets API response status:", response.status);
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          console.error(
+            "Google Sheets error:",
+            result.error || "Unknown error"
+          );
+          sheetsResult.error = result.error || "Unknown error";
+        } else {
+          console.log("Google Sheets save successful");
+          sheetsResult.success = true;
+        }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+
+        if (fetchError.name === "AbortError") {
+          console.error("Google Sheets API request timed out after 20 seconds");
+
+          // Instead of trying another fetch that might also time out,
+          // we'll consider this a non-critical error since Supabase succeeded
+          console.log("Skipping fallback queue due to timeout issues");
+          sheetsResult.error =
+            "Request timed out - data saved to database only";
+
+          // If Supabase was successful, we'll still return success overall
+          if (supabaseResult.success) {
+            console.log(
+              "Supabase save was successful, continuing despite Sheets error"
+            );
+            sheetsResult.partialSuccess = true;
+          }
+        } else {
+          console.error("Fetch error:", fetchError);
+          sheetsResult.error = fetchError.message;
+        }
       }
     } catch (error) {
-      console.error("Error calling Google Sheets API:", error);
+      console.error("Error in Google Sheets API call block:", error);
       sheetsResult.error = error.message;
     }
 
     // Return success if either service succeeded
-    if (supabaseResult.success || sheetsResult.success) {
+    // Modified to consider partial success
+    if (
+      supabaseResult.success ||
+      sheetsResult.success ||
+      sheetsResult.partialSuccess
+    ) {
       return {
         success: true,
         data: supabaseResult.data,
         supabaseStatus: supabaseResult.success ? "success" : "failed",
-        sheetsStatus: sheetsResult.success ? "success" : "failed",
+        sheetsStatus: sheetsResult.success
+          ? "success"
+          : sheetsResult.partialSuccess
+          ? "skipped"
+          : "failed",
+        message: sheetsResult.partialSuccess
+          ? "Form submitted successfully but Google Sheets update was skipped due to timeout"
+          : undefined,
       };
     } else {
       // Both failed

@@ -162,3 +162,33 @@
   font-family: var(--font-karla);
   font-weight: 800;
 }
+
+/* Add this to the end of your globals.css file */
+* {
+  outline: none !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+button:focus,
+[data-focus],
+:focus,
+:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Specifically target the ShadCN UI components */
+.focus-visible\:ring-2:focus-visible,
+.focus-visible\:ring-offset-2:focus-visible,
+.focus\:ring-2:focus,
+.focus\:ring-offset-2:focus {
+  --tw-ring-offset-width: 0px !important;
+  --tw-ring-offset-color: transparent !important;
+  --tw-ring-color: transparent !important;
+  --tw-ring-offset-shadow: none !important;
+  --tw-ring-shadow: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}

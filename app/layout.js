@@ -1,5 +1,7 @@
 import { Karla } from "next/font/google";
 import "./globals.css";
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
 
 // Initialize the Karla font with all available weights
 const karla = Karla({
@@ -10,11 +12,14 @@ const karla = Karla({
 });
 
 export const metadata = {
-  title: "Multi-Step Form",
-  description: "A beautiful multi-step form with animations",
+  title: "CK FormX",
+  description: "Form application for CodeKaro",
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const cookieStore = cookies();
+  const supabase = createServerComponentClient({ cookies: () => cookieStore });
+
   return (
     <html lang="en">
       <head>
