@@ -22,6 +22,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, RefreshCw, ChevronDown, Filter, Search } from "lucide-react";
 
 // List of authorized admin emails
 const AUTHORIZED_ADMINS = [
@@ -44,6 +70,27 @@ export default function AdminDashboard() {
   // State for the confirmation modal
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [formToToggle, setFormToToggle] = useState(null);
+
+  // New state for pagination and filtering
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    totalPages: 0,
+  });
+
+  const [filters, setFilters] = useState({
+    startDate: null,
+    endDate: null,
+    search: "",
+  });
+
+  const [sorting, setSorting] = useState({
+    field: "created_at",
+    order: "desc",
+  });
+
+  const [filterDialogOpen, setFilterDialogOpen] = useState(false);
 
   const router = useRouter();
   const supabase = createClientComponentClient();
@@ -123,36 +170,72 @@ export default function AdminDashboard() {
     }
   };
 
-  const fetchStats = async () => {
+  const fetchStats = async (refresh = false) => {
     try {
-      console.log("Fetching stats from API...");
-      const response = await fetch("/api/admin/stats");
+      setLoading(true);
+      setError(null);
+
+      // Add refresh parameter if requested
+      const url = refresh
+        ? "/api/admin/stats?refresh=true"
+        : "/api/admin/stats";
+
+      const response = await fetch(url);
       const data = await response.json();
 
       if (!response.ok) {
-        console.error("Error fetching stats:", data.error);
-        return;
+        throw new Error(data.error || "Failed to fetch stats");
       }
 
       if (!data.success) {
-        console.error("Error fetching stats:", data.error);
-        return;
+        throw new Error(data.error || "Failed to fetch stats");
       }
 
-      console.log("Stats data:", data);
       setStats(data.stats);
+      setLoading(false);
     } catch (err) {
       console.error("Error fetching stats:", err);
+      setError(err.message || "Failed to fetch stats");
+      setLoading(false);
     }
   };
 
-  const fetchSubmissions = async (formType) => {
+  const fetchSubmissions = async (
+    formType,
+    page = 1,
+    newFilters = null,
+    newSorting = null
+  ) => {
     try {
       setLoading(true);
+      setError(null);
 
-      console.log("Fetching submissions for form type:", formType);
+      // Use provided filters/sorting or current state
+      const currentFilters = newFilters || filters;
+      const currentSorting = newSorting || sorting;
+
+      // Build the query string with all parameters
+      const params = new URLSearchParams({
+        form_type: formType,
+        page: page.toString(),
+        pageSize: pagination.pageSize.toString(),
+        sortField: currentSorting.field,
+        sortOrder: currentSorting.order,
+      });
+
+      // Add optional filters
+      if (currentFilters.startDate) {
+        params.append("startDate", formatDate(currentFilters.startDate));
+      }
+      if (currentFilters.endDate) {
+        params.append("endDate", formatDate(currentFilters.endDate));
+      }
+      if (currentFilters.search) {
+        params.append("search", currentFilters.search);
+      }
+
       const response = await fetch(
-        `/api/admin/submissions?form_type=${formType}`
+        `/api/admin/submissions?${params.toString()}`
       );
       const data = await response.json();
 
@@ -164,15 +247,8 @@ export default function AdminDashboard() {
         throw new Error(data.error || "Failed to fetch submissions");
       }
 
-      console.log(`Found ${data.submissions?.length || 0} submissions`);
       setSubmissions(data.submissions || []);
-
-      // Update the submission count for this form type
-      setSubmissionCounts((prev) => ({
-        ...prev,
-        [formType]: data.submissions?.length || 0,
-      }));
-
+      setPagination(data.pagination);
       setLoading(false);
     } catch (err) {
       console.error("Error fetching submissions:", err);
@@ -198,16 +274,15 @@ export default function AdminDashboard() {
     setFormToToggle(null);
   };
 
-  const toggleFormStatus = async (formId, currentStatus) => {
+  const toggleFormStatus = async (formId, newStatus) => {
     try {
-      // Update the local state
+      // Update local state immediately for better UX
       setForms(
         forms.map((form) =>
-          form.id === formId ? { ...form, is_active: !currentStatus } : form
+          form.id === formId ? { ...form, is_active: newStatus } : form
         )
       );
 
-      // Call the API to toggle the form status
       const response = await fetch("/api/admin/toggle-form-status", {
         method: "POST",
         headers: {
@@ -215,50 +290,122 @@ export default function AdminDashboard() {
         },
         body: JSON.stringify({
           form_type: formId,
-          is_active: !currentStatus,
+          is_active: newStatus,
         }),
       });
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || !data.success) {
+        // Revert the state if the API call fails
+        setForms(
+          forms.map((form) =>
+            form.id === formId ? { ...form, is_active: !newStatus } : form
+          )
+        );
         throw new Error(data.error || "Failed to toggle form status");
       }
 
-      if (!data.success) {
-        throw new Error(data.error || "Failed to toggle form status");
-      }
-
-      console.log("Form status toggled:", data);
+      console.log(
+        `Form ${formId} status toggled to ${newStatus ? "active" : "inactive"}`
+      );
     } catch (err) {
       console.error("Error toggling form status:", err);
-
-      // Revert the local state change if there was an error
-      setForms(
-        forms.map((form) =>
-          form.id === formId ? { ...form, is_active: currentStatus } : form
-        )
-      );
-
-      setError(`Failed to toggle form status: ${err.message}`);
+      setError(err.message || "Failed to toggle form status");
     }
   };
 
   const handleFormSelect = (form) => {
     setSelectedForm(form);
-    fetchSubmissions(form.form_type);
     setShowSubmissions(true);
+    setFilters({
+      startDate: null,
+      endDate: null,
+      search: "",
+    });
+    setPagination({
+      ...pagination,
+      page: 1,
+    });
+    fetchSubmissions(form.form_type, 1);
 
-    // Scroll to top of page after a short delay
-    setTimeout(() => {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }, 100);
+    // Scroll to top for better UX
+    window.scrollTo(0, 0);
+  };
+
+  const handlePageChange = (newPage) => {
+    setPagination({
+      ...pagination,
+      page: newPage,
+    });
+    fetchSubmissions(selectedForm.form_type, newPage);
+  };
+
+  const handleSortChange = (field) => {
+    const newOrder =
+      sorting.field === field && sorting.order === "asc" ? "desc" : "asc";
+    const newSorting = {
+      field,
+      order: newOrder,
+    };
+    setSorting(newSorting);
+    fetchSubmissions(selectedForm.form_type, pagination.page, null, newSorting);
+  };
+
+  const handleFilterApply = () => {
+    fetchSubmissions(selectedForm.form_type, 1, filters);
+    setFilterDialogOpen(false);
+  };
+
+  const handleFilterReset = () => {
+    const resetFilters = {
+      startDate: null,
+      endDate: null,
+      search: "",
+    };
+    setFilters(resetFilters);
+    fetchSubmissions(selectedForm.form_type, 1, resetFilters);
+    setFilterDialogOpen(false);
+  };
+
+  const handleSearchChange = (e) => {
+    const searchValue = e.target.value;
+    setFilters({
+      ...filters,
+      search: searchValue,
+    });
+
+    // Debounce search to avoid too many requests
+    const timeoutId = setTimeout(() => {
+      fetchSubmissions(selectedForm.form_type, 1, {
+        ...filters,
+        search: searchValue,
+      });
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  };
+
+  const formatDate = (date) => {
+    if (!date) return null;
+    // If it's a Date object, convert to ISO string and extract the date part
+    if (date instanceof Date) {
+      return date.toISOString().split("T")[0];
+    }
+    // If it's already in YYYY-MM-DD format, return as is
+    if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return date;
+    }
+    // Otherwise, try to create a Date and convert
+    const d = new Date(date);
+    return d.toISOString().split("T")[0];
   };
 
   // Generate table headers based on form type
   const getTableHeaders = (formType) => {
     // Common headers for all forms
     const commonHeaders = [
+      { key: "created_at", label: "Date" },
       { key: "first_name", label: "Name" },
       { key: "email", label: "Email" },
       { key: "whatsapp", label: "WhatsApp" },
@@ -281,11 +428,7 @@ export default function AdminDashboard() {
     }
 
     // Add created_at as the last column
-    return [
-      ...commonHeaders,
-      ...formSpecificHeaders,
-      { key: "created_at", label: "Date Submitted" },
-    ];
+    return [...commonHeaders, ...formSpecificHeaders];
   };
 
   // Get a value from a submission using a key path (e.g., 'form_data.recommendation')
@@ -350,6 +493,34 @@ export default function AdminDashboard() {
     router.push("/admin/login");
   };
 
+  const refreshStats = async (showLoading = false) => {
+    try {
+      if (showLoading) {
+        setLoading(true);
+      }
+      setError(null);
+
+      // First, call the refresh endpoint to update the materialized views
+      const refreshResponse = await fetch("/api/admin/refresh-stats");
+      const refreshData = await refreshResponse.json();
+
+      if (!refreshResponse.ok || !refreshData.success) {
+        throw new Error(refreshData.error || "Failed to refresh stats");
+      }
+
+      // Then fetch the updated stats
+      await fetchStats(true);
+
+      // Show a success message (you could add a toast notification here if you have a toast library)
+      console.log("Stats refreshed successfully at", refreshData.timestamp);
+    } catch (err) {
+      console.error("Error refreshing stats:", err);
+      setError(err.message || "Failed to refresh stats");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Only render the dashboard content if authentication has been checked
   if (!authChecked) {
     return (
@@ -370,7 +541,7 @@ export default function AdminDashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="flex justify-between items-center mb-[20px]">
+          <div className="flex justify-between items-center mb-6">
             <h1 className="text-[30px] font-[500] leading-[36px] text-[#37404A]">
               {showSubmissions && selectedForm
                 ? `${selectedForm.title} Submissions`
@@ -454,9 +625,39 @@ export default function AdminDashboard() {
                 <>
                   {/* Stats Section */}
                   <section className="mb-8">
-                    <h2 className="text-[24px] font-[500] text-[#37404A] mb-4">
-                      Dashboard Statistics
-                    </h2>
+                    <div className="flex justify-between items-center mb-4">
+                      <div>
+                        <h2 className="text-[24px] font-[500] text-[#37404A]">
+                          Dashboard Statistics
+                        </h2>
+                        {stats?.lastUpdated && (
+                          <p className="text-xs text-gray-500">
+                            Last updated:{" "}
+                            {new Date(stats.lastUpdated).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        onClick={() => refreshStats(true)}
+                        disabled={loading}
+                        className="flex items-center gap-2"
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Refreshing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="h-4 w-4" />
+                            <span>Refresh Stats</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Total Submissions Card */}
                       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -667,61 +868,191 @@ export default function AdminDashboard() {
               {/* Submissions Section */}
               {showSubmissions && selectedForm && (
                 <section className="mb-8">
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                  <div className="flex justify-between items-center mb-4">
+                    <div className="flex items-center gap-4">
+                      <div className="relative w-64">
+                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
+                        <Input
+                          placeholder="Search submissions..."
+                          value={filters.search}
+                          onChange={handleSearchChange}
+                          className="pl-8"
+                        />
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        onClick={() => setFilterDialogOpen(true)}
+                        className="flex items-center gap-2"
+                      >
+                        <Filter className="h-4 w-4" />
+                        <span>Filter</span>
+                      </Button>
+                    </div>
+
+                    <div className="text-sm text-gray-500">
+                      {pagination.total} total submissions
+                    </div>
+                  </div>
+
+                  {filters.startDate || filters.endDate ? (
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="text-sm">Filters:</div>
+                      {filters.startDate && (
+                        <Badge
+                          variant="outline"
+                          className="flex items-center gap-1"
+                        >
+                          From:{" "}
+                          {new Date(filters.startDate).toLocaleDateString()}
+                        </Badge>
+                      )}
+                      {filters.endDate && (
+                        <Badge
+                          variant="outline"
+                          className="flex items-center gap-1"
+                        >
+                          To: {new Date(filters.endDate).toLocaleDateString()}
+                        </Badge>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleFilterReset}
+                        className="h-7 px-2 text-xs"
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  ) : null}
+
+                  <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
                           {getTableHeaders(selectedForm.form_type).map(
                             (header) => (
-                              <TableHead key={header.key}>
-                                {header.label}
+                              <TableHead
+                                key={header.key}
+                                className="cursor-pointer hover:bg-gray-50"
+                                onClick={() => handleSortChange(header.key)}
+                              >
+                                <div className="flex items-center gap-1">
+                                  {header.label}
+                                  {sorting.field === header.key && (
+                                    <span className="text-xs">
+                                      {sorting.order === "asc" ? "↑" : "↓"}
+                                    </span>
+                                  )}
+                                </div>
                               </TableHead>
                             )
                           )}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {submissions.length === 0 ? (
-                          <TableRow>
-                            <TableCell
-                              colSpan={
-                                getTableHeaders(selectedForm.form_type).length
-                              }
-                              className="text-center py-4"
-                            >
-                              No submissions found
-                            </TableCell>
-                          </TableRow>
-                        ) : (
+                        {submissions.length > 0 ? (
                           submissions.map((submission) => (
                             <TableRow key={submission.id}>
                               {getTableHeaders(selectedForm.form_type).map(
                                 (header) => (
                                   <TableCell
-                                    key={header.key}
-                                    className={
-                                      header.key === "first_name"
-                                        ? "font-medium"
-                                        : ""
-                                    }
+                                    key={`${submission.id}-${header.key}`}
                                   >
-                                    {header.key === "created_at"
-                                      ? new Date(
-                                          submission.created_at
-                                        ).toLocaleDateString()
-                                      : getSubmissionValue(
-                                          submission,
-                                          header.key
-                                        )}
+                                    {getSubmissionValue(submission, header.key)}
                                   </TableCell>
                                 )
                               )}
                             </TableRow>
                           ))
+                        ) : (
+                          <TableRow>
+                            <TableCell
+                              colSpan={
+                                getTableHeaders(selectedForm.form_type).length
+                              }
+                              className="text-center py-8"
+                            >
+                              {loading ? (
+                                <div className="flex justify-center">
+                                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                                </div>
+                              ) : (
+                                "No submissions found"
+                              )}
+                            </TableCell>
+                          </TableRow>
                         )}
                       </TableBody>
                     </Table>
                   </div>
+
+                  {pagination.totalPages > 1 && (
+                    <div className="mt-4 flex justify-center">
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious
+                              onClick={() =>
+                                handlePageChange(
+                                  Math.max(1, pagination.page - 1)
+                                )
+                              }
+                              disabled={pagination.page === 1}
+                            />
+                          </PaginationItem>
+
+                          {Array.from(
+                            { length: pagination.totalPages },
+                            (_, i) => i + 1
+                          )
+                            .filter(
+                              (page) =>
+                                page === 1 ||
+                                page === pagination.totalPages ||
+                                Math.abs(page - pagination.page) <= 1
+                            )
+                            .map((page, index, array) => {
+                              // Add ellipsis
+                              if (index > 0 && page - array[index - 1] > 1) {
+                                return (
+                                  <PaginationItem key={`ellipsis-${page}`}>
+                                    <span className="px-4 py-2">...</span>
+                                  </PaginationItem>
+                                );
+                              }
+
+                              return (
+                                <PaginationItem key={page}>
+                                  <PaginationLink
+                                    onClick={() => handlePageChange(page)}
+                                    isActive={page === pagination.page}
+                                  >
+                                    {page}
+                                  </PaginationLink>
+                                </PaginationItem>
+                              );
+                            })}
+
+                          <PaginationItem>
+                            <PaginationNext
+                              onClick={() =>
+                                handlePageChange(
+                                  Math.min(
+                                    pagination.totalPages,
+                                    pagination.page + 1
+                                  )
+                                )
+                              }
+                              disabled={
+                                pagination.page === pagination.totalPages
+                              }
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
+                    </div>
+                  )}
                 </section>
               )}
             </div>
@@ -779,6 +1110,55 @@ export default function AdminDashboard() {
             >
               Yes
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Filter Dialog */}
+      <Dialog open={filterDialogOpen} onOpenChange={setFilterDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Filter Submissions</DialogTitle>
+            <DialogDescription>
+              Set date range to filter submissions
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label className="text-right text-sm">From</label>
+              <div className="col-span-3">
+                <Input
+                  type="date"
+                  value={filters.startDate || ""}
+                  onChange={(e) =>
+                    setFilters({ ...filters, startDate: e.target.value })
+                  }
+                  className="w-full"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label className="text-right text-sm">To</label>
+              <div className="col-span-3">
+                <Input
+                  type="date"
+                  value={filters.endDate || ""}
+                  onChange={(e) =>
+                    setFilters({ ...filters, endDate: e.target.value })
+                  }
+                  className="w-full"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={handleFilterReset}>
+              Reset
+            </Button>
+            <Button onClick={handleFilterApply}>Apply Filters</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
