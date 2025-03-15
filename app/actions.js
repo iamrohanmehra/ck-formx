@@ -181,12 +181,14 @@ export async function submitForm(formData) {
       console.log("Using base URL:", baseUrl);
       console.log("Full API URL:", `${baseUrl}/api/submit-form`);
 
-      // Set a timeout for the fetch request
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
+      let sheetsAttempted = false;
 
       try {
-        // First attempt with normal timeout
+        // Set a timeout for the fetch request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
+
+        sheetsAttempted = true;
         const response = await fetch(`${baseUrl}/api/submit-form`, {
           method: "POST",
           headers: {
@@ -213,36 +215,39 @@ export async function submitForm(formData) {
           sheetsResult.success = true;
         }
       } catch (fetchError) {
-        clearTimeout(timeoutId);
+        console.error("Fetch error details:", fetchError);
 
+        // Handle abort error (timeout)
         if (fetchError.name === "AbortError") {
-          console.error("Google Sheets API request timed out after 20 seconds");
-
-          // Instead of trying another fetch that might also time out,
-          // we'll consider this a non-critical error since Supabase succeeded
-          console.log("Skipping fallback queue due to timeout issues");
+          console.log("Google Sheets API request timed out");
           sheetsResult.error =
             "Request timed out - data saved to database only";
+        }
+        // Handle other fetch errors
+        else {
+          sheetsResult.error = `Fetch error: ${fetchError.message}`;
+        }
 
-          // If Supabase was successful, we'll still return success overall
-          if (supabaseResult.success) {
-            console.log(
-              "Supabase save was successful, continuing despite Sheets error"
-            );
-            sheetsResult.partialSuccess = true;
-          }
-        } else {
-          console.error("Fetch error:", fetchError);
-          sheetsResult.error = fetchError.message;
+        // If Supabase was successful, mark as partial success
+        if (supabaseResult.success) {
+          console.log(
+            "Supabase save was successful, continuing despite Sheets error"
+          );
+          sheetsResult.partialSuccess = true;
         }
       }
-    } catch (error) {
-      console.error("Error in Google Sheets API call block:", error);
-      sheetsResult.error = error.message;
+    } catch (outerError) {
+      // This catches any errors in the outer try block
+      console.error("Outer error in Google Sheets block:", outerError);
+      sheetsResult.error = `Error in Sheets API call: ${outerError.message}`;
+
+      // If Supabase was successful, mark as partial success
+      if (supabaseResult.success) {
+        sheetsResult.partialSuccess = true;
+      }
     }
 
-    // Return success if either service succeeded
-    // Modified to consider partial success
+    // Return success if either service succeeded or we had a partial success
     if (
       supabaseResult.success ||
       sheetsResult.success ||
@@ -258,7 +263,7 @@ export async function submitForm(formData) {
           ? "skipped"
           : "failed",
         message: sheetsResult.partialSuccess
-          ? "Form submitted successfully but Google Sheets update was skipped due to timeout"
+          ? "Form submitted successfully but Google Sheets update was skipped"
           : undefined,
       };
     } else {

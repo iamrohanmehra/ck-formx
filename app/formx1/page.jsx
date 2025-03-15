@@ -9,9 +9,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { submitForm } from "@/app/actions";
+import { ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
 import FormInactive from "../components/FormInactive";
 
-export default function FormX1() {
+export default function FormX4() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [formData, setFormData] = useState({
@@ -90,9 +91,16 @@ export default function FormX1() {
             value={formData.firstName}
             onChange={(e) => handleChange("firstName", e.target.value)}
             className={cn(
-              "border-0 border-b-2 rounded-none px-0 py-0 pb-[8px] text-[24px] leading-[32px] w-full focus-visible:ring-0 focus-visible:border-blue-500 transition-colors placeholder:text-[#37404A80]",
+              "border-0 border-b-2 rounded-none px-0 py-0 pb-[8px] text-[24px] text-[#5c5c5c] leading-[32px] w-full focus-visible:ring-0 focus-visible:border-[#37404A] transition-colors placeholder:text-[#37404A80]",
+              "!pl-0 !pr-0 !m-0",
               errors.firstName ? "border-red-500" : "border-gray-300"
             )}
+            style={{
+              paddingLeft: 0,
+              paddingRight: 0,
+              marginLeft: 0,
+              marginRight: 0,
+            }}
             autoFocus
           />
           {errors.firstName && (
@@ -113,9 +121,16 @@ export default function FormX1() {
             value={formData.email}
             onChange={(e) => handleChange("email", e.target.value)}
             className={cn(
-              "border-0 border-b-2 rounded-none px-0 py-0 pb-[8px] text-[24px] leading-[32px] w-full focus-visible:ring-0 focus-visible:border-blue-500 transition-colors placeholder:text-[#37404A80]",
+              "border-0 border-b-2 rounded-none px-0 py-0 pb-[8px] text-[24px] leading-[32px] w-full focus-visible:ring-0 focus-visible:border-[#37404A] transition-colors placeholder:text-[#37404A80]",
+              "!pl-0 !pr-0 !m-0",
               errors.email ? "border-red-500" : "border-gray-300"
             )}
+            style={{
+              paddingLeft: 0,
+              paddingRight: 0,
+              marginLeft: 0,
+              marginRight: 0,
+            }}
             autoFocus
           />
           {errors.email && (
@@ -136,9 +151,16 @@ export default function FormX1() {
             value={formData.whatsapp}
             onChange={(e) => handleChange("whatsapp", e.target.value)}
             className={cn(
-              "border-0 border-b-2 rounded-none px-0 py-0 pb-[8px] text-[24px] leading-[32px] w-full focus-visible:ring-0 focus-visible:border-blue-500 transition-colors placeholder:text-[#37404A80]",
+              "border-0 border-b-2 rounded-none px-0 py-0 pb-[8px] text-[24px] leading-[32px] w-full focus-visible:ring-0 focus-visible:border-[#37404A] transition-colors placeholder:text-[#37404A80]",
+              "!pl-0 !pr-0 !m-0",
               errors.whatsapp ? "border-red-500" : "border-gray-300"
             )}
+            style={{
+              paddingLeft: 0,
+              paddingRight: 0,
+              marginLeft: 0,
+              marginRight: 0,
+            }}
             autoFocus
           />
           {errors.whatsapp && (
@@ -161,7 +183,7 @@ export default function FormX1() {
               className={cn(
                 "flex items-center p-3 border-2 rounded-lg transition-colors",
                 formData.preference === "email"
-                  ? "border-blue-500 bg-blue-50"
+                  ? "border-[#37404A] bg-blue-50"
                   : "border-gray-200 hover:border-gray-300"
               )}
             >
@@ -178,7 +200,7 @@ export default function FormX1() {
               className={cn(
                 "flex items-center p-3 border-2 rounded-lg transition-colors",
                 formData.preference === "whatsapp"
-                  ? "border-blue-500 bg-blue-50"
+                  ? "border-[#37404A] bg-blue-50"
                   : "border-gray-200 hover:border-gray-300"
               )}
             >
@@ -198,7 +220,7 @@ export default function FormX1() {
               className={cn(
                 "flex items-center p-3 border-2 rounded-lg transition-colors",
                 formData.preference === "both"
-                  ? "border-blue-500 bg-blue-50"
+                  ? "border-[#37404A] bg-blue-50"
                   : "border-gray-200 hover:border-gray-300"
               )}
             >
@@ -229,7 +251,7 @@ export default function FormX1() {
               className={cn(
                 "flex items-center p-3 border-2 rounded-lg transition-colors",
                 formData.occupation === "student"
-                  ? "border-blue-500 bg-blue-50"
+                  ? "border-[#37404A] bg-blue-50"
                   : "border-gray-200 hover:border-gray-300"
               )}
             >
@@ -246,7 +268,7 @@ export default function FormX1() {
               className={cn(
                 "flex items-center p-3 border-2 rounded-lg transition-colors",
                 formData.occupation === "college-passout"
-                  ? "border-blue-500 bg-blue-50"
+                  ? "border-[#37404A] bg-blue-50"
                   : "border-gray-200 hover:border-gray-300"
               )}
             >
@@ -266,7 +288,7 @@ export default function FormX1() {
               className={cn(
                 "flex items-center p-3 border-2 rounded-lg transition-colors",
                 formData.occupation === "working-professional"
-                  ? "border-blue-500 bg-blue-50"
+                  ? "border-[#37404A] bg-blue-50"
                   : "border-gray-200 hover:border-gray-300"
               )}
             >
@@ -307,7 +329,7 @@ export default function FormX1() {
               className={cn(
                 "flex items-center p-3 border-2 rounded-lg transition-colors",
                 formData.recommendation === "yes"
-                  ? "border-blue-500 bg-blue-50"
+                  ? "border-[#37404A] bg-blue-50"
                   : "border-gray-200 hover:border-gray-300"
               )}
             >
@@ -327,7 +349,7 @@ export default function FormX1() {
               className={cn(
                 "flex items-center p-3 border-2 rounded-lg transition-colors",
                 formData.recommendation === "no"
-                  ? "border-blue-500 bg-blue-50"
+                  ? "border-[#37404A] bg-blue-50"
                   : "border-gray-200 hover:border-gray-300"
               )}
             >
@@ -368,7 +390,7 @@ export default function FormX1() {
               className={cn(
                 "flex items-center p-3 border-2 rounded-lg transition-colors",
                 formData.income === "0-30k"
-                  ? "border-blue-500 bg-blue-50"
+                  ? "border-[#37404A] bg-blue-50"
                   : "border-gray-200 hover:border-gray-300"
               )}
             >
@@ -385,7 +407,7 @@ export default function FormX1() {
               className={cn(
                 "flex items-center p-3 border-2 rounded-lg transition-colors",
                 formData.income === "30-50k"
-                  ? "border-blue-500 bg-blue-50"
+                  ? "border-[#37404A] bg-blue-50"
                   : "border-gray-200 hover:border-gray-300"
               )}
             >
@@ -402,7 +424,7 @@ export default function FormX1() {
               className={cn(
                 "flex items-center p-3 border-2 rounded-lg transition-colors",
                 formData.income === "50k-1lakh"
-                  ? "border-blue-500 bg-blue-50"
+                  ? "border-[#37404A] bg-blue-50"
                   : "border-gray-200 hover:border-gray-300"
               )}
             >
@@ -439,7 +461,7 @@ export default function FormX1() {
               className={cn(
                 "flex items-center p-3 border-2 rounded-lg transition-colors",
                 formData.frontendInterest === "yes"
-                  ? "border-blue-500 bg-blue-50"
+                  ? "border-[#37404A] bg-blue-50"
                   : "border-gray-200 hover:border-gray-300"
               )}
             >
@@ -452,7 +474,7 @@ export default function FormX1() {
               className={cn(
                 "flex items-center p-3 border-2 rounded-lg transition-colors",
                 formData.frontendInterest === "no"
-                  ? "border-blue-500 bg-blue-50"
+                  ? "border-[#37404A] bg-blue-50"
                   : "border-gray-200 hover:border-gray-300"
               )}
             >
@@ -616,9 +638,34 @@ export default function FormX1() {
 
   const currentQuestion = questions[step];
 
+  const validateCurrentStep = () => {
+    const currentQuestion = questions[step];
+    const field = currentQuestion.id;
+
+    // Basic validation for empty fields
+    if (!formData[field] || formData[field].trim() === "") {
+      return false;
+    }
+
+    // Email validation
+    if (field === "email" && !/^\S+@\S+\.\S+$/.test(formData.email)) {
+      return false;
+    }
+
+    // Phone validation
+    if (
+      field === "whatsapp" &&
+      !/^\+?[0-9\s]{10,15}$/.test(formData.whatsapp)
+    ) {
+      return false;
+    }
+
+    return true;
+  };
+
   // If the form is inactive, show the inactive message
   if (!formActive && !checkingStatus) {
-    return <FormInactive formTitle="FormX1" />;
+    return <FormInactive formTitle="FormX4" />;
   }
 
   // If checking status, show loading
@@ -677,7 +724,7 @@ export default function FormX1() {
 
   return (
     <div
-      className="h-[100dvh] w-full flex flex-col justify-center items-center bg-white font-karla font-normal overflow-hidden"
+      className="h-[100dvh] w-full flex flex-col justify-center items-center bg-white font-karla font-normal overflow-hidden mt-[-2.75vh] relative"
       style={{ fontFamily: "'Karla', sans-serif" }}
     >
       <div className="w-full max-w-[628px] flex flex-col justify-center px-4">
@@ -696,7 +743,7 @@ export default function FormX1() {
                 <p className="text-[14px] sm:text-[16px] leading-[20px] sm:leading-[24px] text-[#37404A80] font-normal">
                   Question {step + 1} <span className="text-red-500">*</span>
                 </p>
-                <h2 className="text-[18px] sm:text-[20px] md:text-[24px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-[#37404A] font-normal">
+                <h2 className="text-[18px] sm:text-[20px] mb-9 md:text-[24px] leading-[24px] sm:leading-[28px] md:leading-[32px] text-[#37404a] font-medium">
                   {currentQuestion.title}
                 </h2>
               </div>
@@ -704,15 +751,6 @@ export default function FormX1() {
               <div className="py-1">{currentQuestion.component}</div>
 
               <div className="flex justify-start pt-2">
-                {step > 0 && (
-                  <Button
-                    variant="outline"
-                    onClick={handlePrevious}
-                    className="mr-2 text-[18px] leading-[28px] py-[6px] px-[20px] rounded-[6px] border-gray-300 hover:bg-gray-50 font-karla font-medium cursor-pointer"
-                  >
-                    Back
-                  </Button>
-                )}
                 <Button
                   onClick={handleNext}
                   className="bg-[#37404A] hover:bg-[#37404acc] text-white text-[18px] leading-[28px] py-[6px] px-[20px] rounded-[6px] font-karla font-medium cursor-pointer"
@@ -721,8 +759,11 @@ export default function FormX1() {
                   {submissionStatus.loading ? (
                     <span>Submitting...</span>
                   ) : (
-                    <span>
+                    <span className="flex items-center">
                       {step === questions.length - 1 ? "Submit" : "Next"}
+                      {step !== questions.length - 1 && (
+                        <ChevronRight className="ml-4 h-5 w-5" />
+                      )}
                     </span>
                   )}
                 </Button>
@@ -730,6 +771,32 @@ export default function FormX1() {
             </motion.div>
           </AnimatePresence>
         </div>
+      </div>
+
+      {/* Add the new navigation buttons at the bottom right */}
+      <div className="fixed bottom-6 right-6 flex shadow-md">
+        <Button
+          onClick={handlePrevious}
+          disabled={step === 0}
+          className="bg-[#37404A] hover:bg-[#37404acc] text-white rounded-l-[6px] rounded-r-none py-[6px] px-[12px] font-karla font-medium cursor-pointer border-r border-r-[#ffffff33]"
+          aria-label="Previous question"
+        >
+          <ChevronUp className="h-5 w-5" />
+        </Button>
+        <Button
+          onClick={handleNext}
+          disabled={submissionStatus.loading || !validateCurrentStep()}
+          className="bg-[#37404A] hover:bg-[#37404acc] text-white rounded-l-none rounded-r-[6px] py-[6px] px-[12px] font-karla font-medium cursor-pointer"
+          aria-label={
+            step === questions.length - 1 ? "Submit" : "Next question"
+          }
+        >
+          {submissionStatus.loading ? (
+            <span>...</span>
+          ) : (
+            <ChevronDown className="h-5 w-5" />
+          )}
+        </Button>
       </div>
 
       {/* Add error message if submission fails */}

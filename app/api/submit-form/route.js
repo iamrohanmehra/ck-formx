@@ -51,19 +51,31 @@ export async function POST(request) {
     try {
       // Add more detailed logging
       console.log("Initializing JWT with email:", email);
-      console.log("Key length:", key ? key.length : 0);
 
-      // Clean the key more thoroughly
-      const cleanedKey = key
-        .replace(/\\n/g, "\n")
-        .replace(/\s+/g, "\n") // Replace any whitespace sequences with newlines
-        .trim();
+      // Fix the key format - this is the critical part
+      let cleanedKey = key;
 
+      // If the key doesn't start with "-----BEGIN PRIVATE KEY-----", it needs formatting
+      if (!key.includes("-----BEGIN PRIVATE KEY-----")) {
+        // Try to properly format the key
+        cleanedKey =
+          "-----BEGIN PRIVATE KEY-----\n" +
+          key.replace(/\\n/g, "\n").replace(/\s+/g, "\n") +
+          "\n-----END PRIVATE KEY-----\n";
+      } else {
+        // Just clean up any escape characters
+        cleanedKey = key.replace(/\\n/g, "\n");
+      }
+
+      console.log("Key formatted for JWT");
+
+      // Create the JWT with the cleaned key
       serviceAccountAuth = new JWT({
         email: email,
         key: cleanedKey,
         scopes: ["https://www.googleapis.com/auth/spreadsheets"],
       });
+
       console.log("JWT authentication initialized successfully");
     } catch (authError) {
       console.error("Error initializing JWT auth:", authError);
@@ -71,31 +83,30 @@ export async function POST(request) {
         {
           success: false,
           error: `Authentication error: ${authError.message}`,
-          keyPreview: key
-            ? `${key.substring(0, 10)}...${key.substring(key.length - 10)}`
-            : "No key",
+          details:
+            "There was an issue with the service account credentials. Please check the format of your GOOGLE_PRIVATE_KEY.",
         },
         { status: 500 }
       );
     }
 
-    // Initialize the sheet with timeout handling
+    // Initialize the sheet
     const doc = new GoogleSpreadsheet(sheetId, serviceAccountAuth);
 
-    // Load document with timeout handling
+    // Load document with a simple try/catch
     try {
       console.log("Loading Google Sheet...");
-      await Promise.race([
-        doc.loadInfo(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout loading sheet")), 15000)
-        ),
-      ]);
+      await doc.loadInfo();
       console.log("Sheet loaded:", doc.title);
     } catch (loadError) {
       console.error("Error loading Google Sheet:", loadError);
       return NextResponse.json(
-        { success: false, error: `Failed to load sheet: ${loadError.message}` },
+        {
+          success: false,
+          error: `Failed to load sheet: ${loadError.message}`,
+          details:
+            "There was an issue accessing the Google Sheet. Please verify the sheet ID and service account permissions.",
+        },
         { status: 500 }
       );
     }
@@ -135,26 +146,21 @@ export async function POST(request) {
     // Add a row with the form data
     try {
       console.log("Adding row to sheet...");
-      await Promise.race([
-        sheet.addRow({
-          timestamp: new Date().toISOString(),
-          first_name: formData.firstName || "",
-          email: formData.email || "",
-          whatsapp: formData.whatsapp || "",
-          preference: formData.preference || "",
-          occupation: formData.occupation || "",
-          form_type: formData.form_type || "formx1",
-          // Add form-specific fields
-          recommendation: formSpecificData.recommendation || "",
-          income: formSpecificData.income || "",
-          frontend_interest: formSpecificData.frontend_interest || "",
-          // Add a JSON string of all form-specific data for future reference
-          form_data: JSON.stringify(formSpecificData),
-        }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout adding row")), 15000)
-        ),
-      ]);
+      await sheet.addRow({
+        timestamp: new Date().toISOString(),
+        first_name: formData.firstName || "",
+        email: formData.email || "",
+        whatsapp: formData.whatsapp || "",
+        preference: formData.preference || "",
+        occupation: formData.occupation || "",
+        form_type: formData.form_type || "formx1",
+        // Add form-specific fields
+        recommendation: formSpecificData.recommendation || "",
+        income: formSpecificData.income || "",
+        frontend_interest: formSpecificData.frontend_interest || "",
+        // Add a JSON string of all form-specific data for future reference
+        form_data: JSON.stringify(formSpecificData),
+      });
       console.log("Row added successfully");
     } catch (rowError) {
       console.error("Error adding row to sheet:", rowError);
